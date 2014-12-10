@@ -38,8 +38,9 @@
 enum { DEF_GIF_DELAY = 75 };
 #endif
 
-#if HAVE_LCMS
+#if HAVE_CMS
 #include <lcms2.h>
+cmsHPROFILE img_get_colorspace(const fileinfo_t *file);
 #endif
 
 float zoom_min;
@@ -50,7 +51,7 @@ static int zoomdiff(float z1, float z2)
 	return (int) (z1 * 1000.0 - z2 * 1000.0);
 }
 
-#ifdef HAVE_LCMS
+#ifdef HAVE_CMS
 static void img_apply_cms(const fileinfo_t *file)
 {
 	cmsHPROFILE pimg, pdev;
@@ -62,8 +63,7 @@ static void img_apply_cms(const fileinfo_t *file)
 	if (pdev == NULL)
 		return;
 
-	// FIXME: Get tagged ICC profile
-	pimg = cmsCreate_sRGBProfile();
+	pimg = img_get_colorspace(file);
 
 	cmsHTRANSFORM tf = cmsCreateTransform(pimg, TYPE_BGRA_8, pdev, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, 0);
 	if (tf != NULL) {
@@ -353,7 +353,7 @@ bool img_load(img_t *img, const fileinfo_t *file)
 #endif
 	}
 
-#if HAVE_LCMS
+#if HAVE_CMS
 	img_apply_cms(file);
 #endif
 

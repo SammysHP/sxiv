@@ -38,6 +38,10 @@
 enum { DEF_GIF_DELAY = 75 };
 #endif
 
+#if HAVE_LCMS
+#include <lcms2.h>
+#endif
+
 float zoom_min;
 float zoom_max;
 
@@ -45,6 +49,36 @@ static int zoomdiff(float z1, float z2)
 {
 	return (int) (z1 * 1000.0 - z2 * 1000.0);
 }
+
+#ifdef HAVE_LCMS
+static void img_apply_cms(const fileinfo_t *file)
+{
+	cmsHPROFILE pimg, pdev;
+
+	if (*DISPLAY_PROFILE == '\0')
+		return;
+
+	pdev = cmsOpenProfileFromFile(DISPLAY_PROFILE, "r");
+	if (pdev == NULL)
+		return;
+
+	// FIXME: Get tagged ICC profile
+	pimg = cmsCreate_sRGBProfile();
+
+	cmsHTRANSFORM tf = cmsCreateTransform(pimg, TYPE_BGRA_8, pdev, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, 0);
+	if (tf != NULL) {
+		int size = imlib_image_get_width() * imlib_image_get_height();
+		DATA32 *data = imlib_image_get_data();
+		cmsDoTransform(tf, data, data, size);
+		imlib_image_put_back_data(data);
+
+		cmsDeleteTransform(tf);
+	}
+
+	cmsCloseProfile(pimg);
+	cmsCloseProfile(pdev);
+}
+#endif
 
 void img_init(img_t *img, win_t *win)
 {
@@ -318,6 +352,11 @@ bool img_load(img_t *img, const fileinfo_t *file)
 			img_load_gif(img, file);
 #endif
 	}
+
+#if HAVE_LCMS
+	img_apply_cms(file);
+#endif
+
 	img->w = imlib_image_get_width();
 	img->h = imlib_image_get_height();
 	img->checkpan = true;

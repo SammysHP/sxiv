@@ -41,6 +41,7 @@ enum { DEF_GIF_DELAY = 75 };
 #if HAVE_CMS
 #include <lcms2.h>
 cmsHPROFILE img_get_colorspace(const fileinfo_t *file);
+cmsHPROFILE img_get_displayprofile(const win_t *win);
 #endif
 
 float zoom_min;
@@ -52,14 +53,11 @@ static int zoomdiff(float z1, float z2)
 }
 
 #ifdef HAVE_CMS
-static void img_apply_cms(const fileinfo_t *file)
+static void img_apply_cms(const fileinfo_t *file, const win_t *win)
 {
 	cmsHPROFILE pimg, pdev;
 
-	if (*DISPLAY_PROFILE == '\0')
-		return;
-
-	pdev = cmsOpenProfileFromFile(DISPLAY_PROFILE, "r");
+	pdev = img_get_displayprofile(win);
 	if (pdev == NULL)
 		return;
 
@@ -355,7 +353,7 @@ bool img_load(img_t *img, const fileinfo_t *file)
 
 #if HAVE_CMS
 	if (!options->native_colors)
-		img_apply_cms(file);
+		img_apply_cms(file, img->win);
 #endif
 
 	img->w = imlib_image_get_width();

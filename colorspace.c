@@ -34,6 +34,9 @@
 #include <libexif/exif-data.h>
 #include <zlib.h>
 
+#include "window.h"
+#include <X11/Xatom.h>
+
 static char *png_inflate(const char *input, int inlen, int *outlen) {
 	z_stream strm;
 	strm.next_in = (void *)input;
@@ -237,4 +240,41 @@ end:
 		res = cmsCreate_sRGBProfile();
 
 	return res;
+}
+
+cmsHPROFILE img_get_displayprofile(const win_t *win)
+{
+	cmsHPROFILE profile = NULL;
+	win_env_t *e = &win->env;
+	Atom iccAtom, retAtom;
+	int retFormat;
+	unsigned long retLength, retAfter;
+	unsigned char *retProperty;
+
+	// TODO: use correct screen for atom
+	// TODO: cache profile
+	iccAtom = XInternAtom(e->dpy, "_ICC_PROFILE", true);
+	if (iccAtom) {
+		if (Success == XGetWindowProperty(
+			e->dpy,
+			RootWindow(e->dpy, e->scr),
+			iccAtom,
+			0,
+			INT_MAX,
+			False,
+			AnyPropertyType,
+			&retAtom,
+			&retFormat,
+			&retLength,
+			&retAfter,
+			&retProperty))
+		{
+			if (retLength > 0)
+				profile = cmsOpenProfileFromMem(retProperty, retLength);
+
+			XFree(retProperty);
+		}
+	}
+
+	return profile;
 }
